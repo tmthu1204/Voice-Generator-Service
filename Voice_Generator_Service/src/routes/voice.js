@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const authMiddleware = require('../middleware/auth');
-const Voice = require('../models/voice');
+const Voice = require('../models/Voice');
 
 // Cấu hình multer để xử lý file upload
 const upload = multer({

@@ -1,7 +1,7 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const Voice = require('../models/voice');
+const Voice = require('../models/Voice');
 const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 

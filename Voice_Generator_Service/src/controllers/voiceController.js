@@ -1,5 +1,5 @@
 const connectVoiceDB = require('../db');
-const Voice = require('../models/voice');
+const Voice = require('../models/Voice');
 
 // Khởi tạo kết nối & model
 let VoiceModel;
