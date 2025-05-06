@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const Voice = require('../models/Voice');
 const cloudinary = require('cloudinary').v2;
+const { GoogleAuth } = require('google-auth-library');
 require('dotenv').config();
 
 // Cấu hình Cloudinary
@@ -14,7 +15,24 @@ cloudinary.config({
 
 const GOOGLE_TTS_ENDPOINT = 'https://texttospeech.googleapis.com/v1/text:synthesize';
 const GOOGLE_VOICES_ENDPOINT = 'https://texttospeech.googleapis.com/v1/voices';
-const API_KEY = process.env.GOOGLE_TTS_API_KEY;
+
+// Configure Google Auth
+const auth = new GoogleAuth({
+  credentials: {
+    type: process.env.GOOGLE_TYPE,
+    project_id: process.env.GOOGLE_PROJECT_ID,
+    private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    auth_uri: process.env.GOOGLE_AUTH_URI,
+    token_uri: process.env.GOOGLE_TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_X509_CERT_URL,
+    client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
+    universe_domain: process.env.GOOGLE_UNIVERSE_DOMAIN
+  },
+  scopes: ['https://www.googleapis.com/auth/cloud-platform']
+});
 
 async function synthesize({ scriptId, engine = 'google', voice, language, style, speed = 1.0, pitch = 0, text, userId }) {
   console.log('=== Synthesize Voice Request ===');
@@ -22,13 +40,18 @@ async function synthesize({ scriptId, engine = 'google', voice, language, style,
   
   try {
     console.log('Sending request to Google TTS API...');
-    const response = await axios.post(`${GOOGLE_TTS_ENDPOINT}?key=${API_KEY}`, {
+    const client = await auth.getClient();
+    const response = await axios.post(GOOGLE_TTS_ENDPOINT, {
       input: { text },
       voice: { languageCode: language, name: voice },
       audioConfig: {
         audioEncoding: 'MP3',
         speakingRate: speed,
         pitch: pitch
+      }
+    }, {
+      headers: {
+        Authorization: `Bearer ${(await client.getAccessToken()).token}`
       }
     });
 
@@ -97,13 +120,18 @@ async function getPreview(engine, voice, language) {
     const previewText = "This is a preview of my voice. How do I sound?";
 
     // Call Google TTS API to generate preview audio
-    const response = await axios.post(`${GOOGLE_TTS_ENDPOINT}?key=${API_KEY}`, {
+    const client = await auth.getClient();
+    const response = await axios.post(GOOGLE_TTS_ENDPOINT, {
       input: { text: previewText },
       voice: { languageCode: language, name: voice },
       audioConfig: {
         audioEncoding: 'MP3',
         speakingRate: 1.0,
         pitch: 0
+      }
+    }, {
+      headers: {
+        Authorization: `Bearer ${(await client.getAccessToken()).token}`
       }
     });
 
@@ -151,7 +179,12 @@ async function getVoices(engine, language = null) {
     }
 
     // Fetch voices from Google TTS API
-    const response = await axios.get(`${GOOGLE_VOICES_ENDPOINT}?key=${API_KEY}`);
+    const client = await auth.getClient();
+    const response = await axios.get(GOOGLE_VOICES_ENDPOINT, {
+      headers: {
+        Authorization: `Bearer ${(await client.getAccessToken()).token}`
+      }
+    });
     let voices = response.data.voices;
 
     // Filter by language if specified
