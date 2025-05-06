@@ -34,6 +34,40 @@ const auth = new GoogleAuth({
   scopes: ['https://www.googleapis.com/auth/cloud-platform']
 });
 
+// Predefined list of voices
+const VOICE_LIST = [
+  {
+    voice_name: 'Standard-B',
+    gender: 'MALE',
+    voice_style: 'Standard'
+  },
+  {
+    voice_name: 'Standard-C',
+    gender: 'FEMALE',
+    voice_style: 'Standard'
+  },
+  {
+    voice_name: 'Chirp3-HD-Laomedeia',
+    gender: 'FEMALE',
+    voice_style: 'Expressive'
+  },
+  {
+    voice_name: 'Chirp3-HD-Algenib',
+    gender: 'MALE',
+    voice_style: 'Expressive'
+  },
+  {
+    voice_name: 'Chirp3-HD-Aoede',
+    gender: 'FEMALE',
+    voice_style: 'Professional'
+  },
+  {
+    voice_name: 'Chirp3-HD-Enceladus',
+    gender: 'MALE',
+    voice_style: 'Professional'
+  }
+];
+
 async function synthesize({ scriptId, engine = 'google', voice, language, style, speed = 1.0, pitch = 0, text, userId }) {
   console.log('=== Synthesize Voice Request ===');
   console.log('Request Data:', { scriptId, engine, voice, language, style, speed, pitch, text, userId });
@@ -178,26 +212,12 @@ async function getVoices(engine, language = null) {
       throw new Error('Only Google TTS engine is supported');
     }
 
-    // Fetch voices from Google TTS API
-    const client = await auth.getClient();
-    const response = await axios.get(GOOGLE_VOICES_ENDPOINT, {
-      headers: {
-        Authorization: `Bearer ${(await client.getAccessToken()).token}`
-      }
-    });
-    let voices = response.data.voices;
-
-    // Filter by language if specified
-    if (language) {
-      voices = voices.filter(v => v.languageCodes.includes(language));
-    }
-
     // Format voices to match required response structure
-    const formattedVoices = voices.map(v => ({
-      name: v.name,
-      language: v.languageCodes[0],
-      gender: v.ssmlGender,
-      styles: [] // Google TTS doesn't support styles
+    const formattedVoices = VOICE_LIST.map(v => ({
+      name: `${language}-${v.voice_name}`,
+      language: language,
+      gender: v.gender,
+      styles: [v.voice_style]
     }));
 
     return {
@@ -207,7 +227,6 @@ async function getVoices(engine, language = null) {
   } catch (err) {
     console.error('Error in getVoices:', {
       message: err.message,
-      response: err.response?.data,
       stack: err.stack
     });
     throw {
@@ -228,19 +247,31 @@ async function uploadVoice(scriptId, file, userId) {
     }
 
     // Validate file type
-    if (!file.mimetype.includes('audio/mpeg')) {
-      throw new Error('Only MP3 files are allowed');
+    if (!file.mimetype.includes('audio/')) {
+      throw new Error('Only audio files are allowed');
     }
 
     // Upload file to Cloudinary
-    const result = await cloudinary.uploader.upload(file.buffer, {
-      resource_type: 'video',
-      folder: `custom_audio/${userId}`,
-      format: 'mp3',
-      public_id: `voice_custom_${scriptId}`
+    const uploadPromise = new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream({
+        resource_type: 'video',
+        folder: `custom_audio/${userId}`,
+        format: 'mp3',
+        public_id: `voice_custom_${scriptId}`
+      }, (error, result) => {
+        if (error) {
+          console.error('Cloudinary upload error:', error);
+          reject(new Error('Failed to upload file to Cloudinary'));
+        } else {
+          resolve(result);
+        }
+      });
+
+      uploadStream.end(file.buffer);
     });
 
-    console.log('File uploaded to Cloudinary successfully');
+    const result = await uploadPromise;
+    console.log('File uploaded to Cloudinary successfully:', result);
 
     // Create new voice record in database
     const newVoice = new Voice({
@@ -260,6 +291,7 @@ async function uploadVoice(scriptId, file, userId) {
     console.log('Voice record created in database successfully');
     
     return {
+      success: true,
       message: 'Giọng nói người thật đã được tải lên thay thế.',
       audioUrl: result.secure_url
     };

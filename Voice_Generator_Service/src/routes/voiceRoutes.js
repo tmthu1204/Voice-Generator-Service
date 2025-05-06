@@ -25,10 +25,41 @@ router.post('/synthesize', voiceController.synthesizeVoice);
 router.get('/preview', voiceController.getVoicePreview);
 
 // Lấy danh sách giọng nói theo engine & ngôn ngữ
-router.get('/list', voiceController.getVoicesList);
+router.get('/list', async (req, res) => {
+  try {
+    const { engine, language } = req.query;
+    
+    if (!engine) {
+      return res.status(400).json({
+        success: false,
+        message: 'Engine parameter is required'
+      });
+    }
+
+    const result = await voiceController.getVoicesList(engine, language);
+    res.status(200).json(result);
+  } catch (err) {
+    console.error('Error in /list route:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get voices list',
+      error: err.message
+    });
+  }
+});
 
 // Upload giọng nói người dùng
-router.post('/upload', upload.single('voice'), voiceController.uploadUserVoice);
+router.post('/upload', upload.single('file'), (req, res, next) => {
+  if (req.file) {
+    next();
+  } else {
+    res.status(400).json({
+      success: false,
+      message: 'Lỗi upload file',
+      error: 'Không tìm thấy file'
+    });
+  }
+}, voiceController.uploadUserVoice);
 
 // Xoá giọng nói
 router.delete('/:voiceId', voiceController.deleteVoice);

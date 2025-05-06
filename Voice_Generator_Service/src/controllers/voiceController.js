@@ -75,39 +75,52 @@ exports.getVoicePreview = async (req, res) => {
   }
 };
 
-exports.getVoicesList = async (req, res) => {
+exports.getVoicesList = async (engine, language) => {
   try {
-    const { engine, language } = req.query;
-
     const voices = await voiceService.getVoices(engine, language);
-    res.status(200).json(voices);
+    return {
+      success: true,
+      data: voices
+    };
   } catch (err) {
     console.error('Lỗi khi lấy danh sách giọng nói:', err);
-    res.status(500).json({ error: 'Không thể lấy danh sách giọng nói' });
+    throw {
+      success: false,
+      message: 'Không thể lấy danh sách giọng nói',
+      error: err.message
+    };
   }
 };
 
 exports.uploadUserVoice = async (req, res) => {
   try {
-    const { userId } = req;
+    const userId = req.user._id;
     const { scriptId } = req.body;
     const file = req.file;
-
-    if (!scriptId || !file) {
-      return res.status(400).json({ error: 'Thiếu scriptId hoặc file giọng nói' });
+    console.log(req.user._id, userId);
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Chưa xác thực người dùng'
+      });
     }
 
-    const result = await voiceService.uploadVoice({
-      VoiceModel: VoiceModel,
-      userId,
-      scriptId,
-      file
-    });
+    if (!scriptId || !file) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Thiếu scriptId hoặc file giọng nói' 
+      });
+    }
 
+    const result = await voiceService.uploadVoice(scriptId, file, userId);
     res.status(200).json(result);
   } catch (err) {
     console.error('Lỗi khi upload giọng nói người dùng:', err);
-    res.status(500).json({ error: 'Không thể upload giọng nói' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Có lỗi xảy ra',
+      error: err.message 
+    });
   }
 };
 
