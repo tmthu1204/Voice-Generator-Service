@@ -1,0 +1,34 @@
+{
+  "job_id": "string", // UUID duy nhất để theo dõi job, liên kết với các bước khác
+  // Danh sách các thiết lập voice cho từng đoạn script
+  "voice_styles": {
+    "style": "string", // Style của voice
+    "gender": "string" // Gender của voice
+  },
+  "segments": [
+    {
+      "index": "number", // Số thứ tự của đoạn script
+      "text": "string" // Nội dung đoạn script
+    }
+  ]
+}
+
+
+{
+  "job_id": "job_id_2",
+  "segments": [
+      {
+          "index": "0",
+          "script": "Hé lô, đây là team tạo video tự động bằng AI của bé Uyên",
+          "audio": "https://res.cloudinary.com/db9cb3rmt/video/upload/v1746643988/voices/srfevpem2dwocophkrqv.mp3",
+          "duration": 4.344
+      },
+      {
+          "index": "1",
+          "script": "Test lần 2 nè!",
+          "audio": "https://res.cloudinary.com/db9cb3rmt/video/upload/v1746643990/voices/dsya5bfj2bgzyzkyrntb.mp3",
+          "duration": 1.296
+      }
+  ]
+}
+
