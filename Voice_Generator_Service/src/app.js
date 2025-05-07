@@ -6,7 +6,7 @@ const { Server } = require('socket.io');
 const connectDB = require('./db');
 const voiceRoutes = require('./routes/voiceRoutes');
 const authMiddleware = require('./middleware/auth');
-const { startConsumer } = require('./consumer');
+const { startConsumer, registerSocket, unregisterSocket } = require('./consumer');
 
 const app = express();
 const httpServer = createServer(app);
@@ -26,17 +26,16 @@ io.on('connection', (socket) => {
 
   // Lắng nghe sự kiện đăng ký theo dõi job
   socket.on('subscribe_job', (jobId) => {
-    console.log(`Client ${socket.id} đăng ký theo dõi job:`, jobId);
-    socketConnections.set(jobId, socket);
+    registerSocket(jobId, socket);
   });
 
   // Lắng nghe sự kiện ngắt kết nối
   socket.on('disconnect', () => {
     console.log('Client đã ngắt kết nối:', socket.id);
-    // Xóa socket khỏi tất cả các job đang theo dõi
+    // Tìm và xóa tất cả các job mà client này đang theo dõi
     for (const [jobId, sock] of socketConnections.entries()) {
       if (sock.id === socket.id) {
-        socketConnections.delete(jobId);
+        unregisterSocket(jobId);
       }
     }
   });

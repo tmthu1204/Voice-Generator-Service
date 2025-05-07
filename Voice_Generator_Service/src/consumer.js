@@ -1,9 +1,23 @@
 const amqp = require('amqplib');
-const { voiceService } = require('./services/voiceService');
-const app = require('./app');
+const voiceService = require('./services/voiceService');
 
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost';
+const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost:5672';
 const QUEUE_NAME = 'voice_generate_queue';
+
+// Lưu trữ các kết nối socket theo job_id
+const socketConnections = new Map();
+
+// Hàm để đăng ký socket connection
+function registerSocket(jobId, socket) {
+    socketConnections.set(jobId, socket);
+    console.log(`Client đã đăng ký theo dõi job: ${jobId}`);
+}
+
+// Hàm để hủy đăng ký socket connection
+function unregisterSocket(jobId) {
+    socketConnections.delete(jobId);
+    console.log(`Client đã hủy theo dõi job: ${jobId}`);
+}
 
 async function startConsumer() {
     try {
@@ -30,23 +44,20 @@ async function startConsumer() {
                     // Xử lý từng segment với voice style tương ứng
                     for (const segment of content.segments) {
                         const result = await voiceService.synthesize({
-                            jobId: content.job_id,
-                            text: segment.text,
-                            style: content.voice_styles.style,
-                            gender: content.voice_styles.gender,
-                            index: segment.index
+                            job_id: content.job_id,
+                            voice_styles: content.voice_styles,
+                            segments: [segment]
                         });
 
                         processedSegments.push({
                             index: segment.index,
                             script: segment.text,
-                            audio: result.audioUrl,
-                            duration: result.duration
+                            audio: result.segments[0].audio,
+                            duration: result.segments[0].duration
                         });
                     }
 
                     // Gửi kết quả qua WebSocket
-                    const socketConnections = app.get('socketConnections');
                     const socket = socketConnections.get(content.job_id);
                     
                     if (socket) {
@@ -82,4 +93,8 @@ async function startConsumer() {
     }
 }
 
-module.exports = { startConsumer }; 
+module.exports = { 
+    startConsumer,
+    registerSocket,
+    unregisterSocket
+}; 

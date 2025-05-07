@@ -30,62 +30,65 @@ exports.synthesizeVoice = async (req, res) => {
     const { 
       job_id,
       voice_styles,
-      edited_images,
-      videoSettings,
-      backgroundMusic 
+      segments
     } = req.body;
 
     // Validate required fields
-    if (!job_id || !voice_styles || !edited_images || !videoSettings) {
+    if (!job_id || !voice_styles || !segments) {
       return res.status(400).json({ 
         success: false,
-        message: 'Thiếu các trường bắt buộc: job_id, voice_styles, edited_images, videoSettings' 
+        message: 'Thiếu các trường bắt buộc: job_id, voice_styles, segments' 
       });
     }
 
-    // Validate voice_styles array
-    if (!Array.isArray(voice_styles) || voice_styles.length === 0) {
+    // Validate voice_styles object
+    if (!voice_styles.style || !voice_styles.gender || !voice_styles.language) {
       return res.status(400).json({
         success: false,
-        message: 'voice_styles phải là một mảng không rỗng'
+        message: 'voice_styles phải có đầy đủ các trường: style, gender, language'
       });
     }
 
-    // Validate each voice style object
-    for (const style of voice_styles) {
-      if (!style.index || !style.engine || !style.voice || !style.language || !style.text) {
-        return res.status(400).json({
-          success: false,
-          message: 'Mỗi voice style phải có đầy đủ các trường: index, engine, voice, language, text'
-        });
-      }
-    }
+    // Validate voice_styles values
+    const validStyles = ['Standard', 'Expressive', 'Professional'];
+    const validGenders = ['MALE', 'FEMALE'];
+    const validLanguages = ['en-US', 'vi-VN'];
 
-    // Validate edited_images array
-    if (!Array.isArray(edited_images) || edited_images.length === 0) {
+    if (!validStyles.includes(voice_styles.style)) {
       return res.status(400).json({
         success: false,
-        message: 'edited_images phải là một mảng không rỗng'
+        message: `style phải là một trong các giá trị: ${validStyles.join(', ')}`
       });
     }
 
-    // Validate each edited image object
-    for (const image of edited_images) {
-      if (!image.index || !image.image_url) {
-        return res.status(400).json({
-          success: false,
-          message: 'Mỗi edited image phải có đầy đủ các trường: index, image_url'
-        });
-      }
+    if (!validGenders.includes(voice_styles.gender)) {
+      return res.status(400).json({
+        success: false,
+        message: `gender phải là một trong các giá trị: ${validGenders.join(', ')}`
+      });
     }
 
-    // Validate videoSettings object
-    const requiredVideoSettings = ['maxAudioSpeed', 'resolution', 'frameRate', 'bitrate', 'audioMismatchStrategy'];
-    for (const setting of requiredVideoSettings) {
-      if (!videoSettings[setting]) {
+    if (!validLanguages.includes(voice_styles.language)) {
+      return res.status(400).json({
+        success: false,
+        message: `language phải là một trong các giá trị: ${validLanguages.join(', ')}`
+      });
+    }
+
+    // Validate segments array
+    if (!Array.isArray(segments) || segments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'segments phải là một mảng không rỗng'
+      });
+    }
+
+    // Validate each segment object
+    for (const segment of segments) {
+      if (typeof segment.index !== 'number' || !segment.text) {
         return res.status(400).json({
           success: false,
-          message: `videoSettings thiếu trường bắt buộc: ${setting}`
+          message: 'Mỗi segment phải có đầy đủ các trường: index (number), text (string)'
         });
       }
     }
@@ -93,9 +96,7 @@ exports.synthesizeVoice = async (req, res) => {
     const result = await voiceService.synthesize({
       job_id,
       voice_styles,
-      edited_images,
-      videoSettings,
-      backgroundMusic
+      segments
     });
 
     res.status(201).json(result);

@@ -73,19 +73,34 @@ async function synthesize(payload) {
   console.log('Request Data:', payload);
   
   try {
-    const { job_id, voice_styles, edited_images, videoSettings, backgroundMusic } = payload;
-    const segments = [];
+    const { job_id, voice_styles, segments } = payload;
 
-    // Process each voice style segment
-    for (const voiceStyle of voice_styles) {
-      const { index, engine, voice, language, style, speed, pitch, text } = voiceStyle;
-      
-      console.log(`Processing segment ${index}...`);
+    // Map voice dựa trên gender và style
+    const selectedVoice = VOICE_LIST.find(voice => 
+      voice.gender === voice_styles.gender && 
+      voice.voice_style === voice_styles.style
+    );
+
+    if (!selectedVoice) {
+      throw new Error(`Không tìm thấy voice phù hợp với gender: ${voice_styles.gender} và style: ${voice_styles.style}`);
+    }
+
+    const engine = 'google';
+    const voice = `${voice_styles.language}-${selectedVoice.voice_name}`;
+    const language = voice_styles.language;
+    const speed = 1.0;
+    const pitch = 0;
+
+    const processedSegments = [];
+
+    // Process each segment
+    for (const segment of segments) {
+      console.log(`Processing segment ${segment.index}...`);
       
       // Get Google TTS audio
       const client = await auth.getClient();
       const response = await axios.post(GOOGLE_TTS_ENDPOINT, {
-        input: { text },
+        input: { text: segment.text },
         voice: { languageCode: language, name: voice },
         audioConfig: {
           audioEncoding: 'MP3',
@@ -110,11 +125,11 @@ async function synthesize(payload) {
         }
       );
 
-      console.log(`Segment ${index} uploaded to Cloudinary successfully`);
+      console.log(`Segment ${segment.index} uploaded to Cloudinary successfully`);
 
       // Create new voice record in database
       const newVoice = new Voice({
-        index: index,
+        index: segment.index,
         type: 'Generate',
         url: result.secure_url,
         publicId: result.public_id,
@@ -127,16 +142,12 @@ async function synthesize(payload) {
       });
 
       await newVoice.save();
-      console.log(`Voice record for segment ${index} created in database successfully`);
+      console.log(`Voice record for segment ${segment.index} created in database successfully`);
 
-      // Find corresponding image for this segment
-      const imageSegment = edited_images.find(img => img.index === index);
-      
-      // Add to segments array
-      segments.push({
-        index: index,
-        script: text,
-        image: imageSegment ? imageSegment.image_url : null,
+      // Add to processed segments array
+      processedSegments.push({
+        index: segment.index,
+        script: segment.text,
         audio: result.secure_url,
         duration: result.duration
       });
@@ -144,9 +155,7 @@ async function synthesize(payload) {
 
     return {
       job_id: job_id,
-      segments: segments,
-      videoSettings: videoSettings,
-      backgroundMusic: backgroundMusic
+      segments: processedSegments
     };
 
   } catch (err) {
