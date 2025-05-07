@@ -27,25 +27,75 @@ exports.synthesizeVoice = async (req, res) => {
       });
     }
 
-    const { scriptId, engine, voice, language, style, speed, pitch, text } = req.body;
+    const { 
+      job_id,
+      voice_styles,
+      edited_images,
+      videoSettings,
+      backgroundMusic 
+    } = req.body;
 
-    if (!scriptId || !engine || !voice || !language || !text) {
+    // Validate required fields
+    if (!job_id || !voice_styles || !edited_images || !videoSettings) {
       return res.status(400).json({ 
         success: false,
-        message: 'Thiếu các trường bắt buộc' 
+        message: 'Thiếu các trường bắt buộc: job_id, voice_styles, edited_images, videoSettings' 
       });
     }
 
+    // Validate voice_styles array
+    if (!Array.isArray(voice_styles) || voice_styles.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'voice_styles phải là một mảng không rỗng'
+      });
+    }
+
+    // Validate each voice style object
+    for (const style of voice_styles) {
+      if (!style.index || !style.engine || !style.voice || !style.language || !style.text) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mỗi voice style phải có đầy đủ các trường: index, engine, voice, language, text'
+        });
+      }
+    }
+
+    // Validate edited_images array
+    if (!Array.isArray(edited_images) || edited_images.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'edited_images phải là một mảng không rỗng'
+      });
+    }
+
+    // Validate each edited image object
+    for (const image of edited_images) {
+      if (!image.index || !image.image_url) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mỗi edited image phải có đầy đủ các trường: index, image_url'
+        });
+      }
+    }
+
+    // Validate videoSettings object
+    const requiredVideoSettings = ['maxAudioSpeed', 'resolution', 'frameRate', 'bitrate', 'audioMismatchStrategy'];
+    for (const setting of requiredVideoSettings) {
+      if (!videoSettings[setting]) {
+        return res.status(400).json({
+          success: false,
+          message: `videoSettings thiếu trường bắt buộc: ${setting}`
+        });
+      }
+    }
+
     const result = await voiceService.synthesize({
-      scriptId,
-      engine,
-      voice,
-      language,
-      style,
-      speed,
-      pitch,
-      text,
-      userId
+      job_id,
+      voice_styles,
+      edited_images,
+      videoSettings,
+      backgroundMusic
     });
 
     res.status(201).json(result);
@@ -95,9 +145,7 @@ exports.getVoicesList = async (engine, language) => {
 exports.uploadUserVoice = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { scriptId } = req.body;
-    const file = req.file;
-    console.log(req.user._id, userId);
+    
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -105,14 +153,17 @@ exports.uploadUserVoice = async (req, res) => {
       });
     }
 
-    if (!scriptId || !file) {
+    const { index, job_id } = req.body;
+    const file = req.file;
+
+    if (!index || !job_id || !file) {
       return res.status(400).json({ 
         success: false,
-        message: 'Thiếu scriptId hoặc file giọng nói' 
+        message: 'Thiếu index, job_id hoặc file giọng nói' 
       });
     }
 
-    const result = await voiceService.uploadVoice(scriptId, file, userId);
+    const result = await voiceService.uploadVoice(index, file, job_id);
     res.status(200).json(result);
   } catch (err) {
     console.error('Lỗi khi upload giọng nói người dùng:', err);

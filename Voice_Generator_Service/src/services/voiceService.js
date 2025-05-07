@@ -68,61 +68,87 @@ const VOICE_LIST = [
   }
 ];
 
-async function synthesize({ scriptId, engine = 'google', voice, language, style, speed = 1.0, pitch = 0, text, userId }) {
+async function synthesize(payload) {
   console.log('=== Synthesize Voice Request ===');
-  console.log('Request Data:', { scriptId, engine, voice, language, style, speed, pitch, text, userId });
+  console.log('Request Data:', payload);
   
   try {
-    console.log('Sending request to Google TTS API...');
-    const client = await auth.getClient();
-    const response = await axios.post(GOOGLE_TTS_ENDPOINT, {
-      input: { text },
-      voice: { languageCode: language, name: voice },
-      audioConfig: {
-        audioEncoding: 'MP3',
-        speakingRate: speed,
-        pitch: pitch
-      }
-    }, {
-      headers: {
-        Authorization: `Bearer ${(await client.getAccessToken()).token}`
-      }
-    });
+    const { job_id, voice_styles, edited_images, videoSettings, backgroundMusic } = payload;
+    const segments = [];
 
-    console.log('Google TTS API Response Status:', response.status);
-    const audioContent = response.data.audioContent;
+    // Process each voice style segment
+    for (const voiceStyle of voice_styles) {
+      const { index, engine, voice, language, style, speed, pitch, text } = voiceStyle;
+      
+      console.log(`Processing segment ${index}...`);
+      
+      // Get Google TTS audio
+      const client = await auth.getClient();
+      const response = await axios.post(GOOGLE_TTS_ENDPOINT, {
+        input: { text },
+        voice: { languageCode: language, name: voice },
+        audioConfig: {
+          audioEncoding: 'MP3',
+          speakingRate: speed,
+          pitch: pitch
+        }
+      }, {
+        headers: {
+          Authorization: `Bearer ${(await client.getAccessToken()).token}`
+        }
+      });
 
-    // Upload audio content to Cloudinary
-    const result = await cloudinary.uploader.upload(
-      `data:audio/mp3;base64,${audioContent}`,
-      {
-        resource_type: 'video',
-        folder: 'voices',
-        format: 'mp3'
-      }
-    );
+      const audioContent = response.data.audioContent;
 
-    console.log('File uploaded to Cloudinary successfully');
+      // Upload audio content to Cloudinary
+      const result = await cloudinary.uploader.upload(
+        `data:audio/mp3;base64,${audioContent}`,
+        {
+          resource_type: 'video',
+          folder: 'voices',
+          format: 'mp3'
+        }
+      );
 
-    // Tạo record mới trong database
-    const newVoice = new Voice({
-      name: `voice_${scriptId}_${Date.now()}`,
-      description: `Voice for script ${scriptId}`,
-      url: result.secure_url,
-      publicId: result.public_id,
-      duration: result.duration,
-      format: result.format,
-      size: result.bytes,
-      createdBy: userId
-    });
+      console.log(`Segment ${index} uploaded to Cloudinary successfully`);
 
-    await newVoice.save();
-    console.log('Voice record created in database successfully');
-    
+      // Create new voice record in database
+      const newVoice = new Voice({
+        index: index,
+        type: 'Generate',
+        url: result.secure_url,
+        publicId: result.public_id,
+        duration: result.duration,
+        format: result.format,
+        size: result.bytes,
+        job_id: job_id,
+        createdAt: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+        updatedAt: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
+      });
+
+      await newVoice.save();
+      console.log(`Voice record for segment ${index} created in database successfully`);
+
+      // Find corresponding image for this segment
+      const imageSegment = edited_images.find(img => img.index === index);
+      
+      // Add to segments array
+      segments.push({
+        index: index,
+        script: text,
+        image: imageSegment ? imageSegment.image_url : null,
+        audio: result.secure_url,
+        duration: result.duration
+      });
+    }
+
     return {
-      success: true,
-      data: newVoice
+      job_id: job_id,
+      segments: segments,
+      videoSettings: videoSettings,
+      backgroundMusic: backgroundMusic
     };
+
   } catch (err) {
     console.error('Error in synthesize:', {
       message: err.message,
@@ -131,8 +157,8 @@ async function synthesize({ scriptId, engine = 'google', voice, language, style,
     });
     throw {
       success: false,
-      message: 'Lỗi khi tổng hợp giọng nói',
-      error: err.message
+      message: 'Không thể tạo giọng nói',
+      error: err.message || 'Lỗi khi tổng hợp giọng nói'
     };
   }
 }
@@ -237,13 +263,13 @@ async function getVoices(engine, language = null) {
   }
 }
 
-async function uploadVoice(scriptId, file, userId) {
+async function uploadVoice(index, file, job_id) {
   console.log('=== Upload Voice Request ===');
-  console.log('Request Data:', { scriptId, filename: file.originalname, userId });
+  console.log('Request Data:', { index, filename: file.originalname, job_id });
   
   try {
-    if (!scriptId || !file || !userId) {
-      throw new Error('Missing required parameters: scriptId, file, or userId');
+    if (!index || !file || !job_id) {
+      throw new Error('Missing required parameters: index, file, or job_id');
     }
 
     // Validate file type
@@ -255,9 +281,9 @@ async function uploadVoice(scriptId, file, userId) {
     const uploadPromise = new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream({
         resource_type: 'video',
-        folder: `custom_audio/${userId}`,
+        folder: `custom_audio/${job_id}`,
         format: 'mp3',
-        public_id: `voice_custom_${scriptId}`
+        public_id: `voice_custom_${index}`
       }, (error, result) => {
         if (error) {
           console.error('Cloudinary upload error:', error);
@@ -275,25 +301,23 @@ async function uploadVoice(scriptId, file, userId) {
 
     // Create new voice record in database
     const newVoice = new Voice({
-      name: file.originalname,
-      description: `Custom voice for script ${scriptId}`,
+      index: index,
+      type: 'Custom',
       url: result.secure_url,
       publicId: result.public_id,
       duration: result.duration,
       format: result.format,
       size: result.bytes,
-      createdBy: userId,
-      scriptId: scriptId,
-      engine: 'user-upload'
+      job_id: job_id
     });
 
     await newVoice.save();
     console.log('Voice record created in database successfully');
     
     return {
-      success: true,
-      message: 'Giọng nói người thật đã được tải lên thay thế.',
-      audioUrl: result.secure_url
+      job_id: job_id,
+      index: index,
+      audio: result.secure_url
     };
   } catch (err) {
     console.error('Error in uploadVoice:', {

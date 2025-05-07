@@ -1,12 +1,14 @@
 const mongoose = require('mongoose');
 
 const voiceSchema = new mongoose.Schema({
-  name: {
-    type: String,
+  index: {
+    type: Number,
     required: true
   },
-  description: {
-    type: String
+  type: {
+    type: String,
+    required: true,
+    enum: ['Generate', 'Custom']
   },
   url: {
     type: String,
@@ -25,13 +27,18 @@ const voiceSchema = new mongoose.Schema({
   size: {
     type: Number
   },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+  job_id: {
+    type: String,
     required: true
+  },
+  createdAt: {
+    type: String,
+    default: () => new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
+  },
+  updatedAt: {
+    type: String,
+    default: () => new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
   }
-}, {
-  timestamps: true
 });
 
 module.exports = mongoose.model('Voice', voiceSchema);
