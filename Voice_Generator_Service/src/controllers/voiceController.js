@@ -112,17 +112,50 @@ exports.synthesizeVoice = async (req, res) => {
 
 exports.getVoicePreview = async (req, res) => {
   try {
-    const { engine, voice, language } = req.query;
+    const { gender, style, language } = req.query;
 
-    if (!engine || !voice || !language) {
-      return res.status(400).json({ error: 'Thiếu các tham số bắt buộc' });
+    if (!gender || !style || !language) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Thiếu các tham số bắt buộc: gender, style, hoặc language' 
+      });
     }
 
-    const sample = await voiceService.getPreview(engine, voice, language);
+    // Validate gender and style values
+    const validStyles = ['Standard', 'Expressive', 'Professional'];
+    const validGenders = ['MALE', 'FEMALE'];
+    const validLanguages = ['en-US', 'vi-VN'];
+
+    if (!validGenders.includes(gender)) {
+      return res.status(400).json({
+        success: false,
+        message: `gender phải là một trong các giá trị: ${validGenders.join(', ')}`
+      });
+    }
+
+    if (!validStyles.includes(style)) {
+      return res.status(400).json({
+        success: false,
+        message: `style phải là một trong các giá trị: ${validStyles.join(', ')}`
+      });
+    }
+
+    if (!validLanguages.includes(language)) {
+      return res.status(400).json({
+        success: false,
+        message: `language phải là một trong các giá trị: ${validLanguages.join(', ')}`
+      });
+    }
+
+    const sample = await voiceService.getPreview(gender, style, language);
     res.status(200).json(sample);
   } catch (err) {
     console.error('Lỗi khi lấy preview giọng nói:', err);
-    res.status(500).json({ error: 'Không thể lấy bản nghe thử' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Không thể lấy bản nghe thử',
+      error: err.message 
+    });
   }
 };
 

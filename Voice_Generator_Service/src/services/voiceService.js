@@ -172,18 +172,26 @@ async function synthesize(payload) {
   }
 }
 
-async function getPreview(engine, voice, language) {
+async function getPreview(gender, style, language) {
   console.log('=== Get Voice Preview Request ===');
-  console.log('Request Parameters:', { engine, voice, language });
+  console.log('Request Parameters:', { gender, style, language });
   
   try {
-    if (!engine || !voice || !language) {
-      throw new Error('Missing required parameters: engine, voice, or language');
+    if (!gender || !style || !language) {
+      throw new Error('Missing required parameters: gender, style, or language');
     }
 
-    if (engine !== 'google') {
-      throw new Error('Only Google TTS engine is supported for preview');
+    // Find voice based on gender and style
+    const selectedVoice = VOICE_LIST.find(voice => 
+      voice.gender === gender && 
+      voice.voice_style === style
+    );
+
+    if (!selectedVoice) {
+      throw new Error(`Không tìm thấy voice phù hợp với gender: ${gender} và style: ${style}`);
     }
+
+    const voice = `${language}-${selectedVoice.voice_name}`;
 
     // Generate a short preview text
     const previewText = "This is a preview of my voice. How do I sound?";
