@@ -148,6 +148,7 @@ exports.getVoicePreview = async (req, res) => {
     }
 
     const sample = await voiceService.getPreview(gender, style, language);
+    console.log(sample);
     res.status(200).json(sample);
   } catch (err) {
     console.error('Lỗi khi lấy preview giọng nói:', err);
