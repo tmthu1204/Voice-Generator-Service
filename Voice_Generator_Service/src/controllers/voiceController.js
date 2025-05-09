@@ -114,6 +114,7 @@ exports.getVoicePreview = async (req, res) => {
   try {
     const { gender, style, language } = req.query;
 
+    
     if (!gender || !style || !language) {
       return res.status(400).json({ 
         success: false,

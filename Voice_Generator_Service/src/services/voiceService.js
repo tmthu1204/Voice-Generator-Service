@@ -247,7 +247,6 @@ async function getPreview(gender, style, language) {
       }
     );
 
-    res.status
     return {
       success: true,
       sampleUrl: result.secure_url
