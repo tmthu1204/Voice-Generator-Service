@@ -68,10 +68,32 @@ const VOICE_LIST = [
   }
 ];
 
+// Map ngôn ngữ từ mã ngắn sang mã đầy đủ
+function mapLanguage(lang) {
+  const languageMap = {
+    'en': 'en-US',
+    'vi': 'vi-VN',
+    'fr': 'fr-FR',
+    'es': 'es-ES',
+    'de': 'de-DE',
+    'it': 'it-IT',
+    'ja': 'ja-JP',
+    'ko': 'ko-KR',
+    'zh': 'zh-CN',
+    'ru': 'ru-RU',
+    'pt': 'pt-BR',
+    'nl': 'nl-NL',
+    'ar': 'ar-XA',
+    'hi': 'hi-IN',
+    'th': 'th-TH'
+  };
+  
+  return languageMap[lang.toLowerCase()] || lang;
+}
+
 async function synthesize(payload) {
   console.log('=== Synthesize Voice Request ===');
   console.log('Request Data:', payload);
-  
   try {
     const { job_id, voice_styles, segments } = payload;
 
@@ -86,8 +108,9 @@ async function synthesize(payload) {
     }
 
     const engine = 'google';
-    const voice = `${voice_styles.language}-${selectedVoice.voice_name}`;
-    const language = voice_styles.language;
+    const mappedLanguage = mapLanguage(voice_styles.language);
+    const voice = `${mappedLanguage}-${selectedVoice.voice_name}`;
+    const language = mappedLanguage;
     const speed = 1.0;
     const pitch = 0;
 
