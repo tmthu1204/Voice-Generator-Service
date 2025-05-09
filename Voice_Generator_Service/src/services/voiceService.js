@@ -49,7 +49,7 @@ const VOICE_LIST = [
   {
     voice_name: 'Chirp3-HD-Laomedeia',
     gender: 'FEMALE',
-    voice_style: 'Expressive'
+    voice_style: 'Professional'
   },
   {
     voice_name: 'Chirp3-HD-Algenib',
@@ -59,7 +59,7 @@ const VOICE_LIST = [
   {
     voice_name: 'Chirp3-HD-Aoede',
     gender: 'FEMALE',
-    voice_style: 'Professional'
+    voice_style: 'Expressive'
   },
   {
     voice_name: 'Chirp3-HD-Enceladus',
