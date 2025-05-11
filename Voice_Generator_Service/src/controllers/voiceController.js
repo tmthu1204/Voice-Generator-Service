@@ -125,7 +125,7 @@ exports.getVoicePreview = async (req, res) => {
     // Validate gender and style values
     const validStyles = ['Standard', 'Expressive', 'Professional'];
     const validGenders = ['MALE', 'FEMALE'];
-    const validLanguages = ['en-US', 'vi-VN'];
+    const validLanguages = ['en-US', 'vi-VN', 'fr-FR', 'es-ES', 'de-DE'];
 
     if (!validGenders.includes(gender)) {
       return res.status(400).json({
